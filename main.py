@@ -1,52 +1,64 @@
 from functions import verify_user, is_user_registered, calculate_tax, save_to_csv, file_read_from_csv
+import pandas as pd
+import os
 
 FILENAME = "tax_records.csv"
+
+# Optional: Ensure old IC data is removed before saving new
+def remove_existing_ic(ic_number):
+    if os.path.isfile(FILENAME):
+        df = pd.read_csv(FILENAME)
+        df = df[df['IC Number'].astype(str) != str(ic_number)]
+        df.to_csv(FILENAME, index=False)
 
 def main():
     print("📌 Welcome to Malaysian Tax Input Program")
 
-     # Step 1: Prompt for User ID and password
-    ic_number = input("Enter your User ID (12-digit IC number): ").strip()
-    password = input("Enter your password (last 4 digits of IC): ").strip()
+    # Step 1: Prompt for User ID and password
+    ic = input("Enter your User ID (12-digit IC number): ").strip()
+    pwd = input("Enter your password (last 4 digits of IC): ").strip()
 
-    # Step 2: Check registration
-    if is_user_registered(ic_number, FILENAME):
-        # User exists, verify password
-        if verify_user(ic_number, password):
-            print("✅ Login successful.")
-        else:
+    # Step 2: Validate IC format
+    if not ic.isdigit() or len(ic) != 12:
+        print("❌ Invalid IC format. Must be 12 digits.")
+        return
+
+    # Step 3: Check registration and verify user
+    if is_user_registered(ic, FILENAME):
+        if not verify_user(ic, pwd):
             print("❌ Incorrect password. Access denied.")
             return
+        else:
+            print("✅ Login successful.")
+            remove_existing_ic(ic)  # Remove old record if updating
     else:
-        # User not registered, ask for registration
-        print("🔒 You are not registered. Let's register you.")
-        if password == ic_number[-4:]:
+        if verify_user(ic, pwd):
             print("✅ Registration successful.")
         else:
             print("❌ Registration failed. Password must match last 4 digits of IC.")
             return
 
-    # Step 3: User enter income and Calculate tax
+    # Step 4: Income & Tax Input
     income, relief, tax = calculate_tax()
 
-    # Step 4: Display summary
-    print(f"\n📄 Summary for {ic_number}:")
+    # Step 5: Display Summary
+    print(f"\n📄 Summary for {ic}:")
     print(f"🧾 Income: RM {income:.2f}")
     print(f"📉 Tax Relief: RM {relief:.2f}")
     print(f"💰 Tax Payable: RM {tax:.2f}")
 
-    # Step 5: Save tax records to CSV
-    tax_data = {
-        "IC Number": ic_number,
+    # Step 6: Save to CSV (overwrite if exists)
+    data = {
+        "IC Number": ic,
         "Income (RM)": income,
         "Tax Relief (RM)": relief,
         "Tax Payable (RM)": round(tax, 2)
     }
 
-    save_to_csv(tax_data, FILENAME)
-    print("\n✅ Tax record saved.")
+    save_to_csv(data, FILENAME)
+    print("\n✅ Tax record saved successfully.")
 
-    # Step 6: Display all tax records
+    # Step 7: Display all tax records
     print("\n📊 All Tax Records:")
     df = file_read_from_csv(FILENAME)
     if df is not None:
